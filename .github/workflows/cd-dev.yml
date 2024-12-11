@@ -1,0 +1,52 @@
+---
+name: CD-dev
+on:
+    push:
+        branches: [dev]
+
+jobs:
+    build-image:
+        uses: ./.github/workflows/build-dev.yml
+        with:
+            image_tag: ${{ github.sha }}
+
+    deploy:
+        runs-on: ubuntu-latest
+        needs: [build-image]
+        env:
+            IMAGE_NAME: ${{ vars.DEV_IMAGE_NAME }}
+            IMAGE_TAG: ${{ github.sha }}
+            PROJECT_ID: ${{ secrets.DEV_GCP_PROJECT_ID }}
+            ARTIFACT_REPOSITORY: ${{ vars.DEV_GCP_ARTIFACT_REPOSITORY }}
+            REGION: ${{ vars.DEV_GCP_REGION }}
+            INSTANCE_NAME: ${{ vars.DEV_INSTANCE_NAME }}
+
+        steps:
+            - name: Code Checkout
+              uses: actions/checkout@v4
+
+            - name: GCP Authentication
+              uses: google-github-actions/auth@v2
+              with:
+                  credentials_json: ${{ secrets.DEV_GCP_CREDENTIALS }}
+
+            - name: Set up Cloud SDK
+              uses: google-github-actions/setup-gcloud@v2
+
+            - name: Build Docker Run Command with Secrets
+              id: build_command
+              run: |
+                  SECRETS=$(gcloud secrets list --filter="name:message_broker" --format="value(name)")
+                  DOCKER_RUN_COMMAND="docker run --rm -it -p 8080:80 "
+                  for SECRET in $SECRETS; do
+                    CLEANED_NAME=$(echo "$SECRET" | awk -F'_' '{print toupper($NF)}')
+                    PAYLOAD=$(gcloud secrets versions access latest --secret="$SECRET")
+                    DOCKER_RUN_COMMAND+="-e MESSAGE_BROKER_${CLEANED_NAME}='$PAYLOAD' "
+                  done
+                  DOCKER_RUN_COMMAND+="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+                  # Output the command for the next step
+                  echo "DOCKER_RUN_COMMAND=$DOCKER_RUN_COMMAND" >> $GITHUB_ENV
+
+            - name: Execute Docker Command on GCP VM
+              run: |-
+                  gcloud compute ssh ${{ env.INSTANCE_NAME }} --command="docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} && docker stop \$(docker ps -q) && ${{ env.DOCKER_RUN_COMMAND }}"
