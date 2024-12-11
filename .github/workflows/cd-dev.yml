@@ -44,8 +44,9 @@ jobs:
                     PAYLOAD=$(gcloud secrets versions access latest --secret="$SECRET")
                     DOCKER_RUN_COMMAND+="-e MESSAGE_BROKER_${CLEANED_NAME}='$PAYLOAD' "
                   done
-                  DOCKER_RUN_COMMAND+="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+                  DOCKER_RUN_COMMAND+="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
                   # Output the command for the next step
+                  echo "::add-mask::$DOCKER_RUN_COMMAND"
                   echo "DOCKER_RUN_COMMAND=$DOCKER_RUN_COMMAND" >> $GITHUB_ENV
 
             - name: Execute Docker Command on GCP VM
