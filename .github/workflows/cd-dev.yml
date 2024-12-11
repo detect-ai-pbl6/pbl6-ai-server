@@ -51,4 +51,4 @@ jobs:
 
             - name: Execute Docker Command on GCP VM
               run: |-
-                  gcloud compute ssh ${{ env.INSTANCE_NAME }} --command="docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} && docker stop \$(docker ps -q) && ${{ env.DOCKER_RUN_COMMAND }}"
+                  gcloud compute ssh ${{ env.INSTANCE_NAME }} --tunnel-through-iap --command="docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} && docker stop \$(docker ps -q) && ${{ env.DOCKER_RUN_COMMAND }}"
