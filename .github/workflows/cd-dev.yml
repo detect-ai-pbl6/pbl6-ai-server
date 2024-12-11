@@ -9,6 +9,7 @@ jobs:
         uses: ./.github/workflows/build-dev.yml
         with:
             image_tag: ${{ github.sha }}
+        secrets: inherit
 
     deploy:
         runs-on: ubuntu-latest
