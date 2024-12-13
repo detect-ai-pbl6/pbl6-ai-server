@@ -3,3 +3,8 @@ uvicorn==0.32.1
 typer==0.15.1
 pydantic-settings==2.6.1
 celery==5.4.0
+pillow==11.0.0
+numpy==2.2.0
+requests==2.32.3
+# Install this using cli
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu

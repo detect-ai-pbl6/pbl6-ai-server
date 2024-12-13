@@ -2,7 +2,7 @@
 name: CD-dev
 on:
     push:
-        branches: [fix/gcloud-ssh-command]
+        branches: [dev]
 
 jobs:
     build-image:
@@ -52,18 +52,34 @@ jobs:
 
             - name: Execute Docker Command on GCP VM
               run: |
-                  gcloud compute ssh ${{ env.INSTANCE_NAME }} \
-                  --tunnel-through-iap \
-                  --zone="${{ vars.DEV_INSTANCE_ZONE }}" \
-                  --command="
-                    set -e
-                    gcloud auth configure-docker --quiet
-                    gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-                    docker pull ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-                    RUNNING_CONTAINERS=$(docker ps -q)
-                    if [ ! -z "$RUNNING_CONTAINERS" ]; then
-                      docker stop $RUNNING_CONTAINERS
-                    fi
-                    ${{ env.DOCKER_RUN_COMMAND }}
-                    docker image prune --all -f
-                  "
+                  instances=$(gcloud compute instances list --filter="name~'-ai-'" --format="csv(name,zone)" | tail -n +2)
+
+                  while IFS=',' read -r name zone; do
+                      echo "Executing command on instance: $name in zone: $zone"
+                      gcloud compute ssh "$name" \
+                          --tunnel-through-iap \
+                          --zone "$zone" \
+                          --command "
+                              set -e
+                              gcloud auth configure-docker --quiet
+                              gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+                              FILE_PATH='/etc/docker/model.pth'
+                              # Explicit check with full path
+                              if [ -f '/etc/docker/model.pth' ]; then
+                                  echo \"File exists. Deleting...\"
+                                  sudo rm '/etc/docker/model.pth'
+                                  echo \"File deletion attempted.\"
+                              else
+                                  echo \"File does not exist.\"
+                              fi
+                              cd /etc/docker/
+                              sudo gcloud storage cp gs://pbl6-dev-ai-model-bucket/model.pth .
+
+                              sudo docker pull ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+                              sudo docker compose -f /etc/docker/docker-compose.yml down
+                              sudo yq e '.services."ai-service".image = \"${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}\"' -i /etc/docker/docker-compose.yml
+                              sudo docker compose -f /etc/docker/docker-compose.yml up -d
+                              sudo docker image prune --all -f
+                              "
+                  done <<<"$instances"
