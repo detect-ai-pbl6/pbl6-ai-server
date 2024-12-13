@@ -162,3 +162,7 @@ cython_debug/
 #.idea/
 *_cache/
 *.lists
+secret*
+*pth
+*.png
+*.jpg
