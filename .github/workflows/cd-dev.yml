@@ -2,7 +2,7 @@
 name: CD-dev
 on:
     push:
-        branches: [dev]
+        branches: [fix/gcloud-ssh-command]
 
 jobs:
     build-image:
@@ -38,7 +38,7 @@ jobs:
               id: build_command
               run: |
                   SECRETS=$(gcloud secrets list --filter="name:message_broker" --format="value(name)")
-                  DOCKER_RUN_COMMAND="docker run --rm -it -p 8080:80 "
+                  DOCKER_RUN_COMMAND="docker run --rm -d -p 8080:80 "
                   for SECRET in $SECRETS; do
                     CLEANED_NAME=$(echo "$SECRET" | awk -F'_' '{print toupper($NF)}')
                     PAYLOAD=$(gcloud secrets versions access latest --secret="$SECRET")
@@ -47,8 +47,23 @@ jobs:
                   DOCKER_RUN_COMMAND+="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
                   # Output the command for the next step
                   echo "::add-mask::$DOCKER_RUN_COMMAND"
+                  # echo "$DOCKER_RUN_COMMAND"
                   echo "DOCKER_RUN_COMMAND=$DOCKER_RUN_COMMAND" >> $GITHUB_ENV
 
             - name: Execute Docker Command on GCP VM
-              run: |-
-                  gcloud compute ssh ${{ env.INSTANCE_NAME }} --tunnel-through-iap --command="docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} && docker stop \$(docker ps -q) && ${{ env.DOCKER_RUN_COMMAND }}"
+              run: |
+                  gcloud compute ssh ${{ env.INSTANCE_NAME }} \
+                  --tunnel-through-iap \
+                  --zone="${{ vars.DEV_INSTANCE_ZONE }}" \
+                  --command="
+                    set -e
+                    gcloud auth configure-docker --quiet
+                    gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+                    docker pull ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+                    RUNNING_CONTAINERS=$(docker ps -q)
+                    if [ ! -z "$RUNNING_CONTAINERS" ]; then
+                      docker stop $RUNNING_CONTAINERS
+                    fi
+                    ${{ env.DOCKER_RUN_COMMAND }}
+                    docker image prune --all -f
+                  "
