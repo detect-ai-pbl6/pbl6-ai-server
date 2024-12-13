@@ -1,7 +1,7 @@
-from fastapi import FastAPI, status, HTTPException
-from celery import Celery
-
 import os
+
+from celery import Celery
+from fastapi import FastAPI, HTTPException, status
 
 if os.getenv("ENV", "dev") == "dev":
     from settings.local import Settings
