@@ -15,11 +15,12 @@ RUN apt-get update && \
     apt-get remove -y gcc && \
     apt-get autoremove -y && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
 
 COPY . /app
 
-RUN chmod +x ./docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 80
 
