@@ -46,9 +46,9 @@ def predict_image(payload):
             prediction.update(
                 {
                     "status": "success",
-                    "results": {
-                        "predict": "Synthetic" if prob > 0.5 else "Real",
-                        "percentage": f"{prob * 100:.2f}%",
+                    "prediction": {
+                        "type": "Synthetic" if prob > 0.5 else "Real",
+                        "confidence_percentage": f"{prob * 100:.2f}%",
                     },
                 }
             )
@@ -58,7 +58,7 @@ def predict_image(payload):
         prediction.update(
             {
                 "status": "failed",
-                "results": {},
+                "prediction": {},
                 "error": str(e),
             }
         )
@@ -68,7 +68,7 @@ def predict_image(payload):
         prediction.update(
             {
                 "status": "failed",
-                "results": {},
+                "prediction": {},
                 "error": str(e),
             }
         )
