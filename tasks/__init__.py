@@ -18,7 +18,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name=f"{app_settings.app_name}.predict")
+@shared_task(
+    name=f"{app_settings.app_name}.predict",
+    retry_kwargs={"max_retries": 3, "countdown": 3},
+)
 def predict_image(payload):
 
     saved_file = None
